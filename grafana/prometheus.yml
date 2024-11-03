@@ -1,0 +1,24 @@
+# grafana/prometheus.yml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']  # Nginx should be available on port 80
+
+  - job_name: 'mariadb'
+    static_configs:
+      - targets: ['mariadb:3306']  # Make sure the MySQL exporter is correctly configured
+
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']  # cAdvisor metrics on port 8080
+
+  - job_name: 'mysqld_exporter'
+    static_configs:
+      - targets: ['mysqld_exporter:9104']  # MySQL exporter metrics
+
+  - job_name: 'nginx-exporter'
+    static_configs:
+      - targets: ['nginx-exporter:9113']  # Nginx exporter metrics
