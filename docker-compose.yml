@@ -8,12 +8,20 @@ services:
       - "8080:80"
     volumes:
       - ./php:/var/www/html  
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx.conf:/etc/nginx/nginx.conf
     depends_on:
+      - nginx-exporter
       - php
 
+
   php:
-    image: php:7.4-fpm
+    image: php:8.0-fpm
+    environment:
+      MYSQL_SERVER_NAME: ${MYSQL_SERVER_NAME}  
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+    command: bash -c "docker-php-ext-install mysqli && php-fpm"
     volumes:
       - ./php:/var/www/html
     depends_on:
@@ -22,12 +30,33 @@ services:
   mariadb:
     image: mariadb:latest
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
-      MYSQL_DATABASE: test_db
-      MYSQL_USER: test_user
-      MYSQL_PASSWORD: test_password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8
+    restart: always
+    volumes:      
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./mariadb:/var/lib/mysql
+   
+  
+
+  mariadb_exporter:
+    image: prom/mysqld-exporter
+    environment:
+    - DATA_SOURCE_NAME=${DATA_SOURCE_NAME}  
+    command:
+      - --config.my-cnf=/etc/mysqld_exporter/.my.cnf
+      - --mysqld.address=mariadb:3306
+    ports:
+      - "9104:9104"
     volumes:
-      - db_data:/var/lib/mysql
+      - ./.my.cnf:/etc/mysqld_exporter/.my.cnf:ro
+    
+    depends_on:
+      - mariadb
+ 
 
   grafana:
     image: grafana/grafana:latest
@@ -35,6 +64,10 @@ services:
       - "3000:3000"
     volumes:
       - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/provisioning/dashboards:/var/lib/grafana/provisioning/dashboards
+    environment:
+    - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
     depends_on:
       - prometheus
 
@@ -43,9 +76,14 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./grafana/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--config.file=/etc/prometheus/prometheus.yml'     
+      - '--storage.tsdb.path=/prometheus' 
+      - '--storage.tsdb.retention.time=7d' 
+    restart: always
+
 
   load_test:
     image: locustio/locust
@@ -56,31 +94,24 @@ services:
     command: -f /locust/locustfile.py --host=http://nginx
 
   nginx-exporter:
-    image: nginx/nginx-prometheus-exporter
+    image: nginx/nginx-prometheus-exporter:latest
     ports:
-      - "9113:9113"
-    depends_on:
-      - nginx
-    command: -nginx.scrape-uri=http://nginx/stub_status
-    
-  mysqld_exporter:
-    image: prom/mysqld-exporter
-    ports:
-      - "9104:9104"
-    environment:
-      DATA_SOURCE_NAME: "test_user:test_password@(mariadb:3306)/"
-    depends_on:
-      - mariadb
+      - "9113:9113"   
+    command: [ "-nginx.scrape-uri", "http://nginx/stub_status" ]
+     
 
   cadvisor:
-    image: google/cadvisor
+    image: gcr.io/cadvisor/cadvisor:v0.39.0
     ports:
-      - "8080:8080"
+      - "3033:8080"
+    privileged: true
     volumes:
+      - /:/rootfs:ro
       - /var/run:/var/run:rw
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
-        
+
 volumes:
   db_data:
   grafana_data:
+  prometheus_data:
