@@ -37,4 +37,4 @@ receivers:
           *Severity:* {{ .Labels.severity }}
           *Summary:* {{ .Annotations.summary }}
           {{ end }}
-        api_url: 'https://hooks.slack.com/services/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' 
+        api_url: '' 
