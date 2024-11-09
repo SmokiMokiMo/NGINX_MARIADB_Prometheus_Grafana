@@ -1,0 +1,44 @@
+groups:
+
+  # Nginx Service Alert
+  - name: nginx_alerts
+    rules:
+      - alert: NginxExporterDown
+        expr: up{job="nginx-exporter", instance="nginx-exporter:9113"} == 0
+        for: 1m 
+        labels:
+          severity: critical
+        annotations:
+          summary: "Nginx Exporter is down"
+          description: "The Nginx Exporter instance 'nginx-exporter:9113' is down for more than 1 minute."
+
+      # MySQL Service Alert
+      - alert: SQLServiceDown
+        expr: up{job="mysql"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "MySQL service is down"
+          description: "MySQL instance on {{ $labels.instance }} is not reachable for more than 1 minute."
+    
+
+      # General High CPU Usage Alert
+      - alert: HighCpuUsage
+        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 10
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is above 10% on {{ $labels.instance }}."
+
+      # Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) < 0.95
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Available memory is less than 95% on {{ $labels.instance }}."

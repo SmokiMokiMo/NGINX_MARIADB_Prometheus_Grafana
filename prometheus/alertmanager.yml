@@ -1,0 +1,40 @@
+global:
+  resolve_timeout: 1m 
+
+route:
+  group_wait: 5s        
+  repeat_interval: 5s 
+  group_interval: 10m
+  receiver: 'slack_notifications' 
+  routes:
+    - match:
+        alert: 'NginxExporterDown'  
+      receiver: 'slack_notifications' 
+
+    - match:
+        alert: 'NginxServiceDown'
+      receiver: 'slack_notifications'
+      group_wait: 5s
+
+    - match:
+        alert: 'SQLServiceDown'
+      receiver: 'slack_notifications'
+      group_wait: 5s
+
+    - match:
+        alert: 'RedisServiceDown'
+      receiver: 'slack_notifications'
+      group_wait: 5s
+
+receivers:
+  - name: 'slack_notifications'
+    slack_configs:
+      - channel: '#prometheus_alerts' 
+        send_resolved: true  
+        text: |
+          {{ range .Alerts }}
+          *Alert:* {{ .Labels.alertname }}
+          *Severity:* {{ .Labels.severity }}
+          *Summary:* {{ .Annotations.summary }}
+          {{ end }}
+        api_url: 'https://hooks.slack.com/services/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' 
